@@ -164,4 +164,34 @@ public class DaoConsumidor {
 
         return inserted;
     }
+    
+    public boolean ItemDadoNEscalonado(){
+        List<String> infoList = new ArrayList();
+        myConnection = new MinhaConexao();
+        myConnection.getConnection();
+        
+        boolean f = true;
+                
+        Connection conn = myConnection.getConnection();
+
+        try {
+            String sql = "SELECT * FROM schedule WHERE flag = 0";
+            PreparedStatement stm = conn.prepareStatement(sql);
+
+            ResultSet rs = stm.executeQuery();
+
+            while (rs.next()) {
+                infoList.add(rs.toString());
+            }
+            
+            if(infoList.isEmpty()){
+                f = false;
+            }
+        }catch(Exception e){
+            e.printStackTrace();
+        } finally{
+            myConnection.desconect(conn);
+        }
+        return f;
+    }
 }
