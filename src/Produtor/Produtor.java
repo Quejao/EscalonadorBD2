@@ -30,7 +30,6 @@ public class Produtor extends Thread {
                 gerenciador = new GerenciadorTransacao(numeroItens, numeroTransacoes, numeroAcessos, ultimoIndice);
                 Schedule schedule = new Schedule(gerenciador.getListaTransacoes());
                 TransacaoDao.gravarTransacoes(schedule);
-                escalonador.escalonar();
                 Thread.sleep( 3 * 1000 );
             } while(flag);
         }catch (InterruptedException e) {
