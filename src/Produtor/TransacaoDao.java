@@ -15,7 +15,7 @@ public class TransacaoDao {
         minhaConexao.getConnection();
     }
 
-    public static void gravarTransacoes(Schedule schedule) {
+    public static void gravarTransacoes(Schedule schedule) throws SQLException {
         Operacao operacao = null;
 
         Connection conn = minhaConexao.getConnection();
@@ -41,10 +41,12 @@ public class TransacaoDao {
         } catch (SQLException e) {
             System.out.println("Erro ao encerrar conexão");
             e.printStackTrace();
+        } finally{
+            minhaConexao.release(conn);
         }
     }
 
-    public static int pegarUltimoIndice() {
+    public static int pegarUltimoIndice() throws SQLException {
         int ultimoIndice = 0;
         minhaConexao = new MinhaConexao();
         Connection conn = minhaConexao.getConnection();
@@ -58,6 +60,8 @@ public class TransacaoDao {
         } catch (SQLException e) {
             System.err.println("Erro na consulta ao ultimo Indice");
             e.printStackTrace();
+        } finally{
+            minhaConexao.release(conn);
         }
         return ultimoIndice;
     }

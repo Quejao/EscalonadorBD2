@@ -9,6 +9,7 @@ import Produtor.MinhaConexao;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -19,21 +20,32 @@ import java.util.List;
  * @author Leonardo
  */
 public class DaoConsumidor {
-    private static MinhaConexao myConnection;
-    public int lastIndex = 0;
+    private static MinhaConexao minhaConexao;
+    public int ultimoIndice = 0;
 
-    public List<RecuperaInfo> ConsumoLote(){
-        List<RecuperaInfo> infoList = new ArrayList();
+    public List<RecuperaInfo> ConsumoLote() throws SQLException{
+        List<RecuperaInfo> informacao = new ArrayList();
 
-        myConnection = new MinhaConexao();
-        myConnection.getConnection();
+        minhaConexao = new MinhaConexao();
+        minhaConexao.getConnection();
 
-        int lastOp = lastOperationId();
+        int ultimaOp = 0;
 
-        Connection conn = myConnection.getConnection();
+        Connection conn = minhaConexao.getConnection();
         try {
-            String sql = "SELECT * FROM schedule WHERE flag = 0";
+            String sqlUltimoId = "SELECT MAX(idoperacao) FROM schedule WHERE flag <> 2";
+            PreparedStatement stmt = conn.prepareStatement(sqlUltimoId);
+
+            ResultSet rst = stmt.executeQuery();
+
+            rst.next();
+            ultimaOp = rst.getInt(1);
+
+            String sql = "SELECT * FROM schedule WHERE idoperacao >= ? AND idoperacao <= ?";
             PreparedStatement stm = conn.prepareStatement(sql);
+
+            stm.setInt(1, ultimaOp-50);
+            stm.setInt(2, ultimaOp);
 
             ResultSet rs = stm.executeQuery();
 
@@ -44,102 +56,84 @@ public class DaoConsumidor {
                                                                  rs.getString("itemdado"),
                                                                  rs.getString("timestampj"),
                                                                  rs.getInt("flag"));
-                //alterFlag(info.getIdOperacao());
+                //alteraFlag(info.getIdOperacao());
 
-                infoList.add(info);
+                informacao.add(info);
             }
         }catch(Exception e){
             e.printStackTrace();
         } finally{
-            myConnection.desconect(conn);
+            minhaConexao.release(conn);
         }
 
-        return infoList;
+        return informacao;
     }
     
-    public void alterFlag(int idOperacao,int valor){
-        myConnection = new MinhaConexao();
-        myConnection.getConnection();
+    public void alteraFlag(int idOperacao) throws SQLException{
+        minhaConexao = new MinhaConexao();
+        minhaConexao.getConnection();
 
-        Connection conn = myConnection.getConnection();
+        Connection conn = minhaConexao.getConnection();
         
         try {
-            String sql = "UPDATE schedule SET flag = ? WHERE idoperacao = ?";
+            String sql = "UPDATE schedule SET flag = 1 WHERE idoperacao = ?";
             PreparedStatement stm = conn.prepareStatement(sql);
 
-            stm.setInt(1, valor);
-            stm.setInt(2, idOperacao);
+            stm.setInt(1, idOperacao);
             stm.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
         } finally{
-            myConnection.desconect(conn);
+            minhaConexao.release(conn);
         }
     }
 
-    public List<String> ItemDado(){
-        List<String> infoList = new ArrayList();
+    public List<String> ItemDado() throws SQLException{
+        List<String> informacao = new ArrayList();
 
-        myConnection = new MinhaConexao();
-        myConnection.getConnection();
+        minhaConexao = new MinhaConexao();
+        minhaConexao.getConnection();
         
-        int lastOp = lastOperationId();
+        int ultimaOp = 0;
         
-        Connection conn = myConnection.getConnection();
+        Connection conn = minhaConexao.getConnection();
 
         try {
+            String sqlUltimoId = "SELECT MAX(idoperacao) FROM schedule WHERE flag <> 2";
+            PreparedStatement stmt = conn.prepareStatement(sqlUltimoId);
+
+            ResultSet rst = stmt.executeQuery();
+
+            rst.next();
+            ultimaOp = rst.getInt(1);
+
             String sql = "SELECT distinct itemdado FROM schedule WHERE (idoperacao >= ? AND idoperacao <= ?) AND itemdado IS NOT NULL";
             PreparedStatement stm = conn.prepareStatement(sql);
 
-            stm.setInt(1, lastOp-50);
-            stm.setInt(2, lastOp);
+            stm.setInt(1, ultimaOp-50);
+            stm.setInt(2, ultimaOp);
 
             ResultSet rs = stm.executeQuery();
 
             while (rs.next()) {
-                infoList.add(rs.getString("itemdado"));
+                informacao.add(rs.getString("itemdado"));
             }
         }catch(Exception e){
             e.printStackTrace();
         } finally{
-            myConnection.desconect(conn);
+            minhaConexao.release(conn);
         }
 
-        return infoList;
-    }
-    
-    public int lastOperationId(){
-        myConnection = new MinhaConexao();
-        myConnection.getConnection();
-
-        Connection conn = myConnection.getConnection();
-
-        int lastId = 0;
-
-        try {
-            String sql = "SELECT MAX(idoperacao) FROM schedule WHERE flag <> 2";
-            PreparedStatement stm = conn.prepareStatement(sql);
-
-            ResultSet rs = stm.executeQuery();
-
-            rs.next();
-            lastId = rs.getInt(1);
-        } catch (Exception e) {
-            e.printStackTrace();
-        } finally{
-            myConnection.desconect(conn);
-        }
-
-        return lastId;
+        return informacao;
     }
 
-    public boolean insertTabel(RecuperaInfo info){
-        boolean inserted = false;
+    public boolean insereTabela(RecuperaInfo info) throws SQLException{
+        boolean inseriu = false;
         
-        myConnection = new MinhaConexao();
-        myConnection.getConnection();
+        minhaConexao = new MinhaConexao();
+        minhaConexao.getConnection();
 
-        Connection conn = myConnection.getConnection();
+        Connection conn = minhaConexao.getConnection();
         
         try {
             String sql = "INSERT INTO scheduleout(indiceTransacao, operacao, itemDado, timestampj) VALUES (?, ?, ?, ?)";
@@ -151,45 +145,13 @@ public class DaoConsumidor {
             stm.setString(4, new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             
             stm.executeUpdate();
-            inserted = true;
-            
-            alterFlag(info.getIdOperacao(),1);
+            inseriu = true;
         } catch (Exception e) {
             e.printStackTrace();
         } finally{
-            myConnection.desconect(conn);
+            minhaConexao.release(conn);
         }
 
-        return inserted;
-    }
-    
-    public boolean ItemDadoNEscalonado(){
-        List<String> infoList = new ArrayList();
-        myConnection = new MinhaConexao();
-        myConnection.getConnection();
-        
-        boolean f = true;
-                
-        Connection conn = myConnection.getConnection();
-
-        try {
-            String sql = "SELECT * FROM schedule WHERE flag = 0";
-            PreparedStatement stm = conn.prepareStatement(sql);
-
-            ResultSet rs = stm.executeQuery();
-
-            while (rs.next()) {
-                infoList.add(rs.toString());
-            }
-            
-            if(infoList.isEmpty()){
-                f = false;
-            }
-        }catch(Exception e){
-            e.printStackTrace();
-        } finally{
-            myConnection.desconect(conn);
-        }
-        return f;
+        return inseriu;
     }
 }

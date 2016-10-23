@@ -9,197 +9,244 @@ import Produtor.GerenciadorTransacao;
 import Produtor.Schedule;
 import Produtor.TransacaoDao;
 import java.io.PrintWriter;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  *
  * @author Leonardo
  */
-public class Escalonador {
-    ArrayList<String> transactionList;
-    ArrayList<String> data;
-    LinkedList<ItemDado> transactionRow;
-    HashMap<String, Integer> listComponent;
-    HashMap<String, EstadoDoDado> currentDataState;
-    public List<RecuperaInfo> infos = new ArrayList();
-            
-    public static final String statusSharedLockedData = "S";
-    public static final String statusExclusiveLockedData = "X";
-    public static final String statusUnlockedData = "U";
+public class Escalonador extends Thread{
+    Thread th;
     
-    private DaoConsumidor infoDB = new DaoConsumidor();
+    ArrayList<String> listaTransacao;
+    ArrayList<String> dados;
+    
+    HashMap<String, Integer> componFnteDaLista;
+    HashMap<String, EstadoDoDado> estadoDadoCorrente;
+    
+    LinkedList<ItemDado> filaTransacao;
+    
+    public static final String statusDadoDesbloqueado = "U";
+    public static final String statusDadoBloqueadoExclusivo = "X";
+    public static final String statusDadoBloqueadoCompartilhado = "S";
+    
+    public List<RecuperaInfo> informacoes = new ArrayList();
+    private DaoConsumidor infoBD = new DaoConsumidor();
     private RecuperaInfo recupera = null;
 
     public Escalonador() {
-        transactionRow = new LinkedList<>();
-        transactionList = new ArrayList<>();
-        data = new ArrayList<>();
-        currentDataState = new HashMap<>();
+        filaTransacao = new LinkedList<>();
+        listaTransacao = new ArrayList<>();
+        dados = new ArrayList<>();
+        estadoDadoCorrente = new HashMap<>();
     }
 
-    public void wakeRow(String dado) {
+    //solicitacaoBloqueio(tipoBloquio, indicetransacao, operacao)
+    public void solicitacaoBloqueio(String status, String transacao, String dado) throws SQLException {
+        if (status.equals(statusDadoBloqueadoCompartilhado)) {
+            lockS(dado, transacao);
+        } else {
+            lockX(dado, transacao);
+        }
+    }
+
+    //solicitacaoDesbloqueio(indicetransacao, operacao)
+    public void solicitacaoDesbloqueio(String transacao, String dado) throws SQLException {
+        if (!dado.equals("infinito")) {
+            if (estadoDadoCorrente.get(dado).getEstado() == 2) {
+                estadoDadoCorrente.get(dado).setEstado(0);
+                despertarFila(dado);
+                estadoDadoCorrente.get(dado).setEstado(1);
+            }
+            else if (estadoDadoCorrente.get(dado).getEstado() == 1) {
+                listaTransacao.remove(dado);
+                if (listaTransacao.isEmpty()) {
+                    estadoDadoCorrente.get(dado).setEstado(0);
+                    despertarFila(dado);
+                }
+            }
+        }
+    }
+
+    //despertarFila(operacao)
+    public void despertarFila(String dado) throws SQLException {
         if (dado.equals("")) {
-            for (int i = 0; i < transactionRow.size(); i++) {
-                ItemDado j = transactionRow.get(i);
+            for (int i = 0; i < filaTransacao.size(); i++) {
+                ItemDado j = filaTransacao.get(i);
                 if (j.getEstado() == 1) {
-                    transactionRow.remove(i);
-                    LockRequest(statusSharedLockedData, j.getTransacao(), j.getDado());
+                    filaTransacao.remove(i);
+                    solicitacaoBloqueio(statusDadoBloqueadoCompartilhado, j.getTransacao(), j.getDado());
                 }
                 if (j.getEstado() == 2) {
-                    transactionRow.remove(i);
-                    LockRequest(statusExclusiveLockedData, j.getTransacao(), j.getDado());
+                    filaTransacao.remove(i);
+                    solicitacaoBloqueio(statusDadoBloqueadoExclusivo, j.getTransacao(), j.getDado());
                 }
             }
         }
         else {
-            for (ItemDado i : transactionRow) {
+            for (ItemDado i : filaTransacao) {
                 if (i.getDado().equals(dado)) {
                     System.out.println("Despertando " + dado);
                     if (i.getEstado() == 1) {
-                        transactionRow.remove(i);
-                        LockRequest(statusSharedLockedData, i.getTransacao(), i.getDado());
+                        filaTransacao.remove(i);
+                        solicitacaoBloqueio(statusDadoBloqueadoCompartilhado, i.getTransacao(), i.getDado());
                     }
                     if (i.getEstado() == 2) {
-                        transactionRow.remove(i);
-                        LockRequest(statusExclusiveLockedData, i.getTransacao(), i.getDado());
+                        filaTransacao.remove(i);
+                        solicitacaoBloqueio(statusDadoBloqueadoExclusivo, i.getTransacao(), i.getDado());
                     }
                 }
             }
         }
     }
 
-    public void UnlockRequest(String transacao, String dado) {
-        if (!dado.equals("infinito")) {
-            if (currentDataState.get(dado).getEstado() == 2) {
-                currentDataState.get(dado).setEstado(0);
-                wakeRow(dado);
-                currentDataState.get(dado).setEstado(1);
-            }
-            else if (currentDataState.get(dado).getEstado() == 1) {
-                transactionList.remove(dado);
-                if (transactionList.isEmpty()) {
-                    currentDataState.get(dado).setEstado(0);
-                    wakeRow(dado);
-                }
-            }
-        }
-    }
-
-    public void SharedLockRequest(String transacao, String dado) {
-        if (currentDataState.get(dado).getEstado() == 0) {
-            if (currentDataState.get(dado).getTransacao().equals(transacao)) {
+    //solicitacaoBloqueioCompartilhado(operacao, indicetransacao)
+    public void lockS(String dado, String transacao) throws SQLException {
+        if (estadoDadoCorrente.get(dado).getEstado() == 0) {
+            if (estadoDadoCorrente.get(dado).getTransacao().equals(transacao)) {
                 recupera = new RecuperaInfo(Integer.parseInt(transacao), 'R', dado);
-                infoDB.insertTabel(recupera);
-                transactionList.add(transacao);
+                infoBD.insereTabela(recupera);
                 
-                currentDataState.get(dado).setEstado(1);
+                listaTransacao.add(transacao);
+                
+                estadoDadoCorrente.get(dado).setEstado(1);
             }
             recupera = new RecuperaInfo(Integer.parseInt(transacao), 'R', dado);
-            infoDB.insertTabel(recupera);
+            infoBD.insereTabela(recupera);
 
-            transactionList.add(transacao);
-            currentDataState.get(dado).setEstado(1);
+            listaTransacao.add(transacao);
+            estadoDadoCorrente.get(dado).setEstado(1);
         }
-        else if (currentDataState.get(dado).getEstado() == 1) {
-            if (currentDataState.get(dado).getTransacao().equals(transacao)) {
+        else if (estadoDadoCorrente.get(dado).getEstado() == 1) {
+            if (estadoDadoCorrente.get(dado).getTransacao().equals(transacao)) {
                 recupera = new RecuperaInfo(Integer.parseInt(transacao), 'R', dado);
-                infoDB.insertTabel(recupera);
+                infoBD.insereTabela(recupera);
                 
-                transactionList.add(transacao);
+                listaTransacao.add(transacao);
             }
             recupera = new RecuperaInfo(Integer.parseInt(transacao), 'R', dado);
-            infoDB.insertTabel(recupera);
+            infoBD.insereTabela(recupera);
             
-            transactionList.add(transacao);
-            currentDataState.get(dado).setEstado(1);
+            listaTransacao.add(transacao);
+            estadoDadoCorrente.get(dado).setEstado(1);
         }
         else {
             ItemDado novoItemDaFila = new ItemDado(1, transacao, dado);
-            transactionRow.add(novoItemDaFila);
+            filaTransacao.add(novoItemDaFila);
         }
     }
 
-    public void ExclusiveLockRequest(String transacao, String dado) {
-        if (currentDataState.get(dado).getEstado() == 0) {
+    //solicitacaoBloqueioExclusivo(operacao, indicetransacao)
+    public void lockX(String dado, String transacao) throws SQLException {
+        if (estadoDadoCorrente.get(dado).getEstado() == 0) {
             recupera = new RecuperaInfo(Integer.parseInt(transacao), 'W', dado);
-            infoDB.insertTabel(recupera);
+            infoBD.insereTabela(recupera);
             
-            transactionList.add(transacao);
+            listaTransacao.add(transacao);
             
-            currentDataState.get(dado).setEstado(2);
+            estadoDadoCorrente.get(dado).setEstado(2);
         }
-        else if (currentDataState.get(dado).getEstado() == 2 && currentDataState.get(dado).getTransacao().equals(transacao)){
+        else if (estadoDadoCorrente.get(dado).getEstado() == 2 && estadoDadoCorrente.get(dado).getTransacao().equals(transacao)){
             recupera = new RecuperaInfo(Integer.parseInt(transacao), 'W', dado);
-            infoDB.insertTabel(recupera);
+            infoBD.insereTabela(recupera);
 
-            transactionList.add(transacao);
+            listaTransacao.add(transacao);
 
-            currentDataState.get(dado).setEstado(2);
+            estadoDadoCorrente.get(dado).setEstado(2);
         }
-        else if (currentDataState.get(dado).getEstado() == 1 && currentDataState.get(dado).getTransacao().equals(transacao)){
+        else if (estadoDadoCorrente.get(dado).getEstado() == 1 && estadoDadoCorrente.get(dado).getTransacao().equals(transacao)){
             ItemDado novoItemDaFila = new ItemDado(2, transacao, dado);
-            transactionRow.add(novoItemDaFila);
+            filaTransacao.add(novoItemDaFila);
         }
         else {
             ItemDado novoItemDaFila = new ItemDado(2, transacao, dado);
-            transactionRow.add(novoItemDaFila);
+            filaTransacao.add(novoItemDaFila);
         }
     }
 
-    public void LockRequest(String status, String transacao, String dado) {
-        if (status.equals(statusSharedLockedData)) {
-            SharedLockRequest(transacao, dado);
-        } else {
-            ExclusiveLockRequest(transacao, dado);
+    @Override
+    public void run(){
+        List<RecuperaInfo> informacao = null;
+        try {
+            informacao = infoBD.ConsumoLote();
+        } catch (SQLException ex) {
+            Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
         }
-    }
-
-    public void escalonar() {
-        List<RecuperaInfo> informacao = infoDB.ConsumoLote();
-        List<String> itemDado = infoDB.ItemDado();
+        List<String> itemDado = null;
+        try {
+            itemDado = infoBD.ItemDado();
+        } catch (SQLException ex) {
+            Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+        }
 
         for(int i=0; i < itemDado.size(); i++){
-            data.add(itemDado.get(i));
+            dados.add(itemDado.get(i));
         }
 
         EstadoDoDado item = new EstadoDoDado("", 0);
-        for (String dado : data) {
-            currentDataState.put(dado, item);
+        for (String dado : dados) {
+            estadoDadoCorrente.put(dado, item);
         }
 
         for (int j=0; j < informacao.size(); j++) {
-            if (String.valueOf(informacao.get(j).getOperacao()).equals("R")){
-                LockRequest(statusSharedLockedData, String.valueOf(informacao.get(j).getIndiceTransacao()), informacao.get(j).getItemDado());
-            }else if (String.valueOf(informacao.get(j).getOperacao()).equals("W")){
-                LockRequest(statusExclusiveLockedData, String.valueOf(informacao.get(j).getIndiceTransacao()), informacao.get(j).getItemDado());
-            }else if (String.valueOf(informacao.get(j).getOperacao()).equals("E")){
-                UnlockRequest(String.valueOf(informacao.get(j).getIndiceTransacao()), "infinito");
-                verifyRow();
+            if ("R".equals(String.valueOf(informacao.get(j).getOperacao()))){
+                try {
+                    solicitacaoBloqueio(statusDadoBloqueadoCompartilhado, String.valueOf(informacao.get(j).getIndiceTransacao()), informacao.get(j).getItemDado());
+                } catch (SQLException ex) {
+                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            if ("W".equals(String.valueOf(informacao.get(j).getOperacao()))){
+                try {
+                    solicitacaoBloqueio(statusDadoBloqueadoExclusivo, String.valueOf(informacao.get(j).getIndiceTransacao()), informacao.get(j).getItemDado());
+                } catch (SQLException ex) {
+                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            if ("E".equals(String.valueOf(informacao.get(j).getOperacao()))){
+                try {
+                    solicitacaoDesbloqueio(String.valueOf(informacao.get(j).getIndiceTransacao()), "infinito");
+                    verificarFila();
+                } catch (SQLException ex) {
+                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+                }
             }
         }
     }
 
-    private void verifyRow() {
+    private void verificarFila() throws SQLException {
         ItemDado first;
 
-        for (int i = 0; i < transactionRow.size(); i++) {
-            first = transactionRow.get(i);
+        for (int i = 0; i < filaTransacao.size(); i++) {
+            first = filaTransacao.get(i);
 
-            if (currentDataState.get(first.getDado()).getEstado() == 0) {
+            if (estadoDadoCorrente.get(first.getDado()).getEstado() == 0) {
                 switch (first.getEstado()) {
                     case 1:
-                        LockRequest(statusSharedLockedData, first.getTransacao(), first.getDado());
+                        solicitacaoBloqueio(statusDadoBloqueadoCompartilhado, first.getTransacao(), first.getDado());
                         break;
                     case 2:
-                        LockRequest(statusExclusiveLockedData, first.getTransacao(), first.getDado());
+                        solicitacaoBloqueio(statusDadoBloqueadoExclusivo, first.getTransacao(), first.getDado());
                         break;
                 }
             }
         }
     }
-    
+
+    @Override
+    public void start() {
+	if (th == null) {
+            th = new Thread (this);
+            th.start ();
+        }
+    }
 }
