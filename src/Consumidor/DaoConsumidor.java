@@ -32,11 +32,8 @@ public class DaoConsumidor {
 
         Connection conn = myConnection.getConnection();
         try {
-            String sql = "SELECT * FROM schedule WHERE idoperacao >= ? AND idoperacao <= ?";
+            String sql = "SELECT * FROM schedule WHERE flag = 0";
             PreparedStatement stm = conn.prepareStatement(sql);
-
-            stm.setInt(1, lastOp-50);
-            stm.setInt(2, lastOp);
 
             ResultSet rs = stm.executeQuery();
 
@@ -47,7 +44,7 @@ public class DaoConsumidor {
                                                                  rs.getString("itemdado"),
                                                                  rs.getString("timestampj"),
                                                                  rs.getInt("flag"));
-                alterFlag(info.getIdOperacao());
+                //alterFlag(info.getIdOperacao());
 
                 infoList.add(info);
             }
@@ -60,17 +57,18 @@ public class DaoConsumidor {
         return infoList;
     }
     
-    public void alterFlag(int idOperacao){
+    public void alterFlag(int idOperacao,int valor){
         myConnection = new MinhaConexao();
         myConnection.getConnection();
 
         Connection conn = myConnection.getConnection();
         
         try {
-            String sql = "UPDATE schedule SET flag = 1 WHERE idoperacao = ?";
+            String sql = "UPDATE schedule SET flag = ? WHERE idoperacao = ?";
             PreparedStatement stm = conn.prepareStatement(sql);
 
-            stm.setInt(1, idOperacao);
+            stm.setInt(1, valor);
+            stm.setInt(2, idOperacao);
             stm.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
@@ -138,8 +136,6 @@ public class DaoConsumidor {
     public boolean insertTabel(RecuperaInfo info){
         boolean inserted = false;
         
-        System.out.println("Meu idoperacao: "+info.getIdOperacao());
-        
         myConnection = new MinhaConexao();
         myConnection.getConnection();
 
@@ -156,6 +152,8 @@ public class DaoConsumidor {
             
             stm.executeUpdate();
             inserted = true;
+            
+            alterFlag(info.getIdOperacao(),1);
         } catch (Exception e) {
             e.printStackTrace();
         } finally{

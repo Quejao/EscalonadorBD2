@@ -94,7 +94,6 @@ public class Escalonador {
             if (currentDataState.get(dado).getTransacao().equals(transacao)) {
                 recupera = new RecuperaInfo(Integer.parseInt(transacao), 'R', dado);
                 infoDB.insertTabel(recupera);
-                
                 transactionList.add(transacao);
                 
                 currentDataState.get(dado).setEstado(1);
@@ -173,15 +172,11 @@ public class Escalonador {
         }
 
         for (int j=0; j < informacao.size(); j++) {
-            if ("R".equals(String.valueOf(informacao.get(j).getOperacao()))){
+            if (String.valueOf(informacao.get(j).getOperacao()).equals("R")){
                 LockRequest(statusSharedLockedData, String.valueOf(informacao.get(j).getIndiceTransacao()), informacao.get(j).getItemDado());
-            }
-
-            if ("W".equals(String.valueOf(informacao.get(j).getOperacao()))){
+            }else if (String.valueOf(informacao.get(j).getOperacao()).equals("W")){
                 LockRequest(statusExclusiveLockedData, String.valueOf(informacao.get(j).getIndiceTransacao()), informacao.get(j).getItemDado());
-            }
-
-            if ("E".equals(String.valueOf(informacao.get(j).getOperacao()))){
+            }else if (String.valueOf(informacao.get(j).getOperacao()).equals("E")){
                 UnlockRequest(String.valueOf(informacao.get(j).getIndiceTransacao()), "infinito");
                 verifyRow();
             }

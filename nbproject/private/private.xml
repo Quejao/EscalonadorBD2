@@ -3,10 +3,23 @@
     <editor-bookmarks xmlns="http://www.netbeans.org/ns/editor-bookmarks/2" lastBookmarkId="0"/>
     <open-files xmlns="http://www.netbeans.org/ns/projectui-open-files/2">
         <group>
-            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/Main.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/GerenciadorTransacao.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Consumidor/ItemDado.java</file>
             <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/TransacaoDao.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/MinhaConexao.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Consumidor/RecuperaInfo.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/ListaDados.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/Dado.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Consumidor/DaoConsumidor.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/Main.java</file>
             <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/Schedule.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Consumidor/StatusDeBloqueio.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Consumidor/EstadoDoDado.java</file>
             <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/Produtor.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/Transacao.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Consumidor/MainConsumidor.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/Operacao.java</file>
+            <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Produtor/Acesso.java</file>
             <file>file:/C:/Users/Leonardo/Documents/NetBeansProjects/APS_BD2/src/Consumidor/Escalonador.java</file>
         </group>
     </open-files>
