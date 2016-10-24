@@ -10,42 +10,42 @@ package Consumidor;
  * @author Leonardo
  */
 public class ItemDado {
-    private int estado;
-    private String transacao;
-    private String dado;
+    private int state;
+    private String transaction;
+    private String data;
 
     public ItemDado() {
 
     }
 
-    public ItemDado(int estado, String transacao, String dado) {
-        this.estado = estado;
-        this.transacao = transacao;
-        this.dado = dado;
+    public ItemDado(int state, String transaction, String data) {
+        this.state = state;
+        this.transaction = transaction;
+        this.data = data;
     }
 
-    public int getEstado() {
-        return estado;
+    public int getState() {
+        return state;
     }
 
-    public void setEstado(int estado) {
-        this.estado = estado;
+    public void setState(int state) {
+        this.state = state;
     }
 
-    public String getTransacao() {
-        return transacao;
+    public String getTransaction() {
+        return transaction;
     }
 
-    public void setTransacao(String transacao) {
-        this.transacao = transacao;
+    public void setTransaction(String transaction) {
+        this.transaction = transaction;
     }
 
-    public String getDado() {
-        return dado;
+    public String getData() {
+        return data;
     }
 
-    public void setDado(String dado) {
-        this.dado = dado;
+    public void setData(String data) {
+        this.data = data;
     }
     
 }

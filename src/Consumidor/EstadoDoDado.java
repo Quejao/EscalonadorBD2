@@ -10,31 +10,31 @@ package Consumidor;
  * @author Leonardo
  */
 public class EstadoDoDado {
-    private String transacao;
-    private int estado;
+    private String transaction;
+    private int state;
 
-    public EstadoDoDado(String transacao, int estado) {
-        this.transacao = transacao;
-        this.estado = estado;
+    public EstadoDoDado(String transaction, int state) {
+        this.transaction = transaction;
+        this.state = state;
     }
 
     public EstadoDoDado() {
     }
     
-    public String getTransacao() {
-        return transacao;
+    public String getTransaction() {
+        return transaction;
     }
 
-    public void setTransacao(String transacao) {
-        this.transacao = transacao;
+    public void setTransaction(String transaction) {
+        this.transaction = transaction;
     }
 
-    public int getEstado() {
-        return estado;
+    public int getState() {
+        return state;
     }
 
-    public void setEstado(int estado) {
-        this.estado = estado;
+    public void setState(int state) {
+        this.state = state;
     }
     
 }
