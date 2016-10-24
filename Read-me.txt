@@ -1,0 +1,5 @@
+Execução do programa:
+1-Execute no pgAdmin a query statemens, presente na pasta raiz do projeto
+2-Execute a classe main do projeto na IDE desejada(foi utilizado NetBeans para produção do projeto, então podem ser necessárias algumas modificações para utilizar em sua IDE)
+3-O programa gera transações indefinidamente, quando desejar pará-lo aperte enter na pagina de execução do mesmo
+4-O programa salva as transações na tabela de saida scheduleout, pra verificar a saida realize o seguinte comando SQL no pgAdmin: select * from scheduleout; 

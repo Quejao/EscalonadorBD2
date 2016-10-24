@@ -31,6 +31,7 @@ public class Escalonador extends Thread {
     ArrayList<String> data;
     HashMap<String, EstadoDoDado> currentDataState;
     List<Conflito> deadlockControl;
+    int deadLockID;
 
     public static final String statusExclusiveLocked = "X";
     public static final String statusSharedLocked = "S";
@@ -172,12 +173,14 @@ public class Escalonador extends Thread {
     }
 
     //verifica se existe deadlock e retorna a transacao mais antiga q esta em deadlock
-    public int checkDeadlock() {
-        int deadlock = -1;
+    public boolean checkDeadlock() {
+        boolean deadlock = false;
+        deadLockID = -1;
         for (int i = 0; i < deadlockControl.size() - 1; i++) {
             for (int j = 1; j < deadlockControl.size(); j++) {
-                if (deadlockControl.get(i).getDependentTransaction() == deadlockControl.get(j).getBlockTransaction()) {
-                    deadlock = i;
+                if (deadlockControl.get(i).getDependentTransaction().equals(deadlockControl.get(j).getBlockTransaction())) {
+                    deadLockID = i;
+                    deadlock = true;
                 }
             }
         }
@@ -207,12 +210,11 @@ public class Escalonador extends Thread {
             currentDataState.put(dado, item);
         }
         for (int j = 0; j < info.size(); j++) {
-            if (!deadlockControl.isEmpty()) {
-                int aux = checkDeadlock();
-                if (aux > -1) {
+            if (checkDeadlock()) {
+                if (deadLockID > -1) {
                     try {
-                        infoDB.deleteTransactionOperation(aux);
-                        List<Infos> info2 = infoDB.selectTransactionOperations(aux);
+                        infoDB.deleteTransactionOperation(deadLockID);
+                        List<Infos> info2 = infoDB.selectTransactionOperations(deadLockID);
                         while(!info2.isEmpty()){
                             info.add(info2.remove(1));
                         }
