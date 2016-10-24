@@ -29,7 +29,7 @@ public class Conflito {
         this.dependentTransaction = dependentTransaction;
     }
 
-    public Conflito(String blockTransaction, String dependentTransaction) {
+    public Conflito(String dependentTransaction, String blockTransaction) {
         this.blockTransaction = blockTransaction;
         this.dependentTransaction = dependentTransaction;
     }

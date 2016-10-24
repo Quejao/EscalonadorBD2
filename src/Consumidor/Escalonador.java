@@ -5,13 +5,8 @@
  */
 package Consumidor;
 
-import Produtor.GerenciadorTransacao;
-import Produtor.Schedule;
-import Produtor.TransacaoDao;
-import java.io.PrintWriter;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -25,7 +20,6 @@ import java.util.logging.Logger;
 public class Escalonador extends Thread {
 
     Thread th;
-
     LinkedList<ItemDado> transactionWaitRow;
     ArrayList<String> transactionExecutedList;
     ArrayList<String> data;
@@ -50,7 +44,81 @@ public class Escalonador extends Thread {
         info = null;
     }
 
-    //metodo para verificacao de bloqueio requisitados
+    //Thread responsável por manter a execução do program
+    public void start() {
+        if (th == null) {
+            th = new Thread(this);
+            th.start();
+        }
+    }
+
+    //Realiza a chamada dos métodos referentes ao processo de escalonamento
+    public void run() {
+        try {
+            info = infoDB.batchConsumption();
+        } catch (SQLException ex) {
+            Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        List<String> itemDado = null;
+        try {
+            itemDado = infoDB.ItemDado();
+        } catch (SQLException ex) {
+            Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+        for (int i = 0; i < itemDado.size(); i++) {
+            data.add(itemDado.get(i));
+        }
+
+        EstadoDoDado item = new EstadoDoDado("", 0);
+        for (String dado : data) {
+            currentDataState.put(dado, item);
+        }
+        for (int j = 0; j < info.size(); j++) {
+
+            if (checkDeadlock()) {
+                System.out.println("Entrou");
+                if (deadLockID > -1) {
+                    try {
+                        infoDB.deleteTransactionOperation(deadLockID);
+                        List<Infos> info2 = infoDB.selectTransactionOperations(deadLockID);
+                        while (!info2.isEmpty()) {
+                            info.add(info2.remove(1));
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+            if ("R".equals(String.valueOf(info.get(j).getOperaction()))) {
+                try {
+                    lockRequest(statusSharedLocked, String.valueOf(info.get(j).getTransactionIndex()), info.get(j).getDataItem());
+                } catch (SQLException ex) {
+                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            if ("W".equals(String.valueOf(info.get(j).getOperaction()))) {
+                try {
+                    lockRequest(statusExclusiveLocked, String.valueOf(info.get(j).getTransactionIndex()), info.get(j).getDataItem());
+                } catch (SQLException ex) {
+                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+
+            if ("E".equals(String.valueOf(info.get(j).getOperaction()))) {
+                try {
+                    unlockRequest(String.valueOf(info.get(j).getTransactionIndex()), "runner");
+                    verifyRow();
+                } catch (SQLException ex) {
+                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+
+    }
+
+    //Este método chama o tipo de bloqueio requisitado 
     public void lockRequest(String status, String transaction, String data) throws SQLException {
         if (status.equals(statusSharedLocked)) {
             sharedLock(data, transaction);
@@ -59,7 +127,7 @@ public class Escalonador extends Thread {
         }
     }
 
-    //metodo para aplicacao do bloqueio compartilhado
+    //Esse método aplica o bloqueio compartilhado
     public void sharedLock(String data, String transaction) throws SQLException {
         if (currentDataState.get(data).getState() == 0) {
             if (currentDataState.get(data).getTransaction().equals(transaction)) {
@@ -95,7 +163,7 @@ public class Escalonador extends Thread {
         }
     }
 
-    //metodo para aplicacao do bloqueio exclusivo
+    //Esse método aplica o bloqueio exclusivo
     public void exclusiveLock(String data, String transaction) throws SQLException {
         if (currentDataState.get(data).getState() == 0) {
             dataInfo = new Infos(Integer.parseInt(transaction), 'W', data);
@@ -122,9 +190,9 @@ public class Escalonador extends Thread {
         }
     }
 
-    //metodo para aplicacao do desbloqueio
+    //Esse método reaiza o desbloqueio das transações
     public void unlockRequest(String transaction, String data) throws SQLException {
-        if (!data.equals("test")) {
+        if (!data.equals("runner")) {
             if (currentDataState.get(data).getState() == 2) {
                 currentDataState.get(data).setState(0);
                 wakeRow(data);
@@ -141,7 +209,7 @@ public class Escalonador extends Thread {
         }
     }
 
-    //metodo para retirada de elementos da fila de espera
+    //Esse método retira as transações da fila de espera
     public void wakeRow(String data) throws SQLException {
         if (data.equals("")) {
             for (int i = 0; i < transactionWaitRow.size(); i++) {
@@ -172,85 +240,7 @@ public class Escalonador extends Thread {
         }
     }
 
-    //verifica se existe deadlock e retorna a transacao mais antiga q esta em deadlock
-    public boolean checkDeadlock() {
-        boolean deadlock = false;
-        deadLockID = -1;
-        for (int i = 0; i < deadlockControl.size() - 1; i++) {
-            for (int j = 1; j < deadlockControl.size(); j++) {
-                if (deadlockControl.get(i).getDependentTransaction().equals(deadlockControl.get(j).getBlockTransaction())) {
-                    deadLockID = i;
-                    deadlock = true;
-                }
-            }
-        }
-        return deadlock;
-    }
-
-    @Override
-    public void run() {
-        try {
-            info = infoDB.batchConsumption();
-        } catch (SQLException ex) {
-            Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
-        }
-        List<String> itemDado = null;
-        try {
-            itemDado = infoDB.ItemDado();
-        } catch (SQLException ex) {
-            Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
-        }
-
-        for (int i = 0; i < itemDado.size(); i++) {
-            data.add(itemDado.get(i));
-        }
-
-        EstadoDoDado item = new EstadoDoDado("", 0);
-        for (String dado : data) {
-            currentDataState.put(dado, item);
-        }
-        for (int j = 0; j < info.size(); j++) {
-            if (checkDeadlock()) {
-                if (deadLockID > -1) {
-                    try {
-                        infoDB.deleteTransactionOperation(deadLockID);
-                        List<Infos> info2 = infoDB.selectTransactionOperations(deadLockID);
-                        while(!info2.isEmpty()){
-                            info.add(info2.remove(1));
-                        }
-                    } catch (SQLException ex) {
-                        Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
-                    }
-                }
-            }
-            if ("R".equals(String.valueOf(info.get(j).getOperaction()))) {
-                try {
-                    lockRequest(statusSharedLocked, String.valueOf(info.get(j).getTransactionIndex()), info.get(j).getDataItem());
-                } catch (SQLException ex) {
-                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-
-            if ("W".equals(String.valueOf(info.get(j).getOperaction()))) {
-                try {
-                    lockRequest(statusExclusiveLocked, String.valueOf(info.get(j).getTransactionIndex()), info.get(j).getDataItem());
-                } catch (SQLException ex) {
-                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-
-            if ("E".equals(String.valueOf(info.get(j).getOperaction()))) {
-                try {
-                    unlockRequest(String.valueOf(info.get(j).getTransactionIndex()), "test");
-                    verifyRow();
-                } catch (SQLException ex) {
-                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        }
-
-    }
-
+    //Verifica a fila de transação que ainda não foi escalonada
     private void verifyRow() throws SQLException {
         ItemDado first;
 
@@ -270,11 +260,19 @@ public class Escalonador extends Thread {
         }
     }
 
-    @Override
-    public void start() {
-        if (th == null) {
-            th = new Thread(this);
-            th.start();
+    //Método para verificar a existência de um deadlock, seta o deadLockID com a posição da transação mais antiga em conflito
+    public boolean checkDeadlock() {
+        boolean deadlock = false;
+        deadLockID = -1;
+        for (int i = 0; i < deadlockControl.size() - 1; i++) {
+            for (int j = 1; j < deadlockControl.size(); j++) {
+                if (deadlockControl.get(i).getDependentTransaction().equals(deadlockControl.get(j).getBlockTransaction())) {
+                    deadLockID = i;
+                    deadlock = true;
+                }
+            }
         }
+        return deadlock;
     }
+
 }
