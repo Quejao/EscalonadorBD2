@@ -9,7 +9,7 @@ package Consumidor;
  *
  * @author Leonardo
  */
-public class infos {
+public class Infos {
     private int idOperaction;
     private int transactionIndex;
     private char operaction;
@@ -17,7 +17,7 @@ public class infos {
     private String timeStamp;
     private int flag;
 
-    public infos(int idOperaction, int transactionIndex, char operaction, String dataItem, String timeStamp, int flag) {
+    public Infos(int idOperaction, int transactionIndex, char operaction, String dataItem, String timeStamp, int flag) {
         this.idOperaction = idOperaction;
         this.transactionIndex = transactionIndex;
         this.operaction = operaction;
@@ -26,7 +26,7 @@ public class infos {
         this.flag = flag;
     }
 
-    public infos(int transactionIndex, char operaction, String dataItem) {
+    public Infos(int transactionIndex, char operaction, String dataItem) {
         this.transactionIndex = transactionIndex;
         this.operaction = operaction;
         this.dataItem = dataItem;

@@ -24,34 +24,21 @@ public class DaoConsumidor {
     public int ultimoIndice = 0;
     
     //metodo para selecionar inforamcoes das operacoes do banco de dados
-    public List<infos> batchConsumption() throws SQLException{
-        List<infos> informacao = new ArrayList();
+    public List<Infos> batchConsumption() throws SQLException{
+        List<Infos> informacao = new ArrayList();
 
         myConnection = new MinhaConexao();
         myConnection.getConnection();
 
-        int ultimaOp = 0;
-
         Connection conn = myConnection.getConnection();
         try {
-            String sqlUltimoId = "SELECT MAX(idoperacao) FROM schedule WHERE flag <> 2";
-            PreparedStatement stmt = conn.prepareStatement(sqlUltimoId);
-
-            ResultSet rst = stmt.executeQuery();
-
-            rst.next();
-            ultimaOp = rst.getInt(1);
-
-            String sql = "SELECT * FROM schedule WHERE idoperacao >= ? AND idoperacao <= ?";
+            String sql = "SELECT * FROM schedule";
             PreparedStatement stm = conn.prepareStatement(sql);
-
-            stm.setInt(1, ultimaOp-50);
-            stm.setInt(2, ultimaOp);
-
+            
             ResultSet rs = stm.executeQuery();
 
             while (rs.next()) {
-                infos info = new infos(rs.getInt("idoperacao"),
+                Infos info = new Infos(rs.getInt("idoperacao"),
                                                                  rs.getInt("indicetransacao"),
                                                                  rs.getString("operacao").charAt(0),
                                                                  rs.getString("itemdado"),
@@ -77,24 +64,11 @@ public class DaoConsumidor {
         myConnection = new MinhaConexao();
         myConnection.getConnection();
         
-        int ultimaOp = 0;
-        
         Connection conn = myConnection.getConnection();
 
         try {
-            String sqlUltimoId = "SELECT MAX(idoperacao) FROM schedule WHERE flag <> 2";
-            PreparedStatement stmt = conn.prepareStatement(sqlUltimoId);
-
-            ResultSet rst = stmt.executeQuery();
-
-            rst.next();
-            ultimaOp = rst.getInt(1);
-
-            String sql = "SELECT distinct itemdado FROM schedule WHERE (idoperacao >= ? AND idoperacao <= ?) AND itemdado IS NOT NULL";
+            String sql = "SELECT distinct itemdado FROM schedule WHERE itemdado IS NOT NULL";
             PreparedStatement stm = conn.prepareStatement(sql);
-
-            stm.setInt(1, ultimaOp-50);
-            stm.setInt(2, ultimaOp);
 
             ResultSet rs = stm.executeQuery();
 
@@ -111,12 +85,11 @@ public class DaoConsumidor {
     }
 
     //metodo para inserir elementos na tabela de saida
-    public boolean insertTable(infos info) throws SQLException{
+    public boolean insertTable(Infos info) throws SQLException{
         boolean inserted = false;
         
-        myConnection = new MinhaConexao();
+        myConnection = new MinhaConexao();        
         myConnection.getConnection();
-
         Connection conn = myConnection.getConnection();
         
         try {
@@ -129,6 +102,7 @@ public class DaoConsumidor {
             stm.setString(4, new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
             
             stm.executeUpdate();
+            changeFlag(info.getIdOperaction(),1);
             inserted = true;
         } catch (Exception e) {
             e.printStackTrace();
@@ -140,17 +114,16 @@ public class DaoConsumidor {
     }
     
     //metodo para alterar a flag de verificaco se a operacao ja foi escalonada
-    public void changeFlag(int idOperacao) throws SQLException{
+    public void changeFlag(int idOperacao,int i) throws SQLException{
         myConnection = new MinhaConexao();
-        myConnection.getConnection();
-
         Connection conn = myConnection.getConnection();
         
         try {
-            String sql = "UPDATE schedule SET flag = 1 WHERE idoperacao = ?";
+            String sql = "UPDATE schedule SET flag = ? WHERE idoperacao = ?";
             PreparedStatement stm = conn.prepareStatement(sql);
 
-            stm.setInt(1, idOperacao);
+            stm.setInt(1, i);
+            stm.setInt(2, idOperacao);
             stm.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
@@ -205,5 +178,29 @@ public class DaoConsumidor {
             myConnection.desconect(conn);
         }
         return i;
+    }
+    
+    //metodo para retirada de transacoes que nao terminaram de executar da tabela de saida
+    public boolean deleteTransactionOperation(int transactionIndex) throws SQLException{
+        boolean deleted = false;
+        
+        myConnection = new MinhaConexao();
+        myConnection.getConnection();
+
+        Connection conn = myConnection.getConnection();
+        
+        try {
+            String sql = "DELETE * FROM scheduleout WHERE indiceTransacao = ?";
+            PreparedStatement stm = conn.prepareStatement(sql);
+            stm.setInt(1,transactionIndex);
+            stm.executeUpdate();
+            deleted = true;
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally{
+            myConnection.release(conn);
+        }
+
+        return deleted;
     }
 }

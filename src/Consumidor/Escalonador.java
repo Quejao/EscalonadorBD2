@@ -22,30 +22,30 @@ import java.util.logging.Logger;
  *
  * @author Leonardo
  */
-public class Escalonador extends Thread{
+public class Escalonador extends Thread {
+
     Thread th;
-    
+
     LinkedList<ItemDado> transactionWaitRow;
     ArrayList<String> transactionExecutedList;
     ArrayList<String> data;
     HashMap<String, EstadoDoDado> currentDataState;
-    HashMap<String, Integer> listsComponent;
-    
+    List<Conflito> deadlockControl;
+
     public static final String statusExclusiveLocked = "X";
     public static final String statusSharedLocked = "S";
     public static final String statusUnlocked = "U";
-    
-    
-    
-    public List<infos> info = new ArrayList();
+
+    public List<Infos> info = new ArrayList();
     private DaoConsumidor infoDB = new DaoConsumidor();
-    private infos dataInfo = null;
+    private Infos dataInfo = null;
 
     public Escalonador() {
         transactionWaitRow = new LinkedList<>();
         transactionExecutedList = new ArrayList<>();
         data = new ArrayList<>();
         currentDataState = new HashMap<>();
+        deadlockControl = new ArrayList<>();
     }
 
     //metodo para verificacao de bloqueio requisitados
@@ -56,68 +56,67 @@ public class Escalonador extends Thread{
             exclusiveLock(data, transaction);
         }
     }
-    
+
     //metodo para aplicacao do bloqueio compartilhado
     public void sharedLock(String data, String transaction) throws SQLException {
         if (currentDataState.get(data).getState() == 0) {
             if (currentDataState.get(data).getTransaction().equals(transaction)) {
-                dataInfo = new infos(Integer.parseInt(transaction), 'R', data);
+                dataInfo = new Infos(Integer.parseInt(transaction), 'R', data);
                 infoDB.insertTable(dataInfo);
-                
+
                 transactionExecutedList.add(transaction);
-                
+
                 currentDataState.get(data).setState(1);
             }
-            dataInfo = new infos(Integer.parseInt(transaction), 'R', data);
+            dataInfo = new Infos(Integer.parseInt(transaction), 'R', data);
             infoDB.insertTable(dataInfo);
 
             transactionExecutedList.add(transaction);
             currentDataState.get(data).setState(1);
-        }
-        else if (currentDataState.get(data).getState() == 1) {
+        } else if (currentDataState.get(data).getState() == 1) {
             if (currentDataState.get(data).getTransaction().equals(transaction)) {
-                dataInfo = new infos(Integer.parseInt(transaction), 'R', data);
+                dataInfo = new Infos(Integer.parseInt(transaction), 'R', data);
                 infoDB.insertTable(dataInfo);
-                
+
                 transactionExecutedList.add(transaction);
             }
-            dataInfo = new infos(Integer.parseInt(transaction), 'R', data);
+            dataInfo = new Infos(Integer.parseInt(transaction), 'R', data);
             infoDB.insertTable(dataInfo);
-            
+
             transactionExecutedList.add(transaction);
             currentDataState.get(data).setState(1);
-        }
-        else {
+        } else {
             ItemDado novoItemDaFila = new ItemDado(1, transaction, data);
             transactionWaitRow.add(novoItemDaFila);
+            Conflito c = new Conflito(transaction, currentDataState.get(data).getTransaction());
+            deadlockControl.add(c);
         }
     }
 
     //metodo para aplicacao do bloqueio exclusivo
     public void exclusiveLock(String data, String transaction) throws SQLException {
         if (currentDataState.get(data).getState() == 0) {
-            dataInfo = new infos(Integer.parseInt(transaction), 'W', data);
-            infoDB.insertTable(dataInfo);
-            
-            transactionExecutedList.add(transaction);
-            
-            currentDataState.get(data).setState(2);
-        }
-        else if (currentDataState.get(data).getState() == 2 && currentDataState.get(data).getTransaction().equals(transaction)){
-            dataInfo = new infos(Integer.parseInt(transaction), 'W', data);
+            dataInfo = new Infos(Integer.parseInt(transaction), 'W', data);
             infoDB.insertTable(dataInfo);
 
             transactionExecutedList.add(transaction);
 
             currentDataState.get(data).setState(2);
-        }
-        else if (currentDataState.get(data).getState() == 1 && currentDataState.get(data).getTransaction().equals(transaction)){
+        } else if (currentDataState.get(data).getState() == 2 && currentDataState.get(data).getTransaction().equals(transaction)) {
+            dataInfo = new Infos(Integer.parseInt(transaction), 'W', data);
+            infoDB.insertTable(dataInfo);
+
+            transactionExecutedList.add(transaction);
+
+            currentDataState.get(data).setState(2);
+        } else if (currentDataState.get(data).getState() == 1 && currentDataState.get(data).getTransaction().equals(transaction)) {
             ItemDado novoItemDaFila = new ItemDado(2, transaction, data);
             transactionWaitRow.add(novoItemDaFila);
-        }
-        else {
+        } else {
             ItemDado novoItemDaFila = new ItemDado(2, transaction, data);
             transactionWaitRow.add(novoItemDaFila);
+            Conflito c = new Conflito(transaction, currentDataState.get(data).getTransaction());
+            deadlockControl.add(c);
         }
     }
 
@@ -127,13 +126,14 @@ public class Escalonador extends Thread{
             if (currentDataState.get(data).getState() == 2) {
                 currentDataState.get(data).setState(0);
                 wakeRow(data);
+                deadlockControl.remove(transaction);
                 currentDataState.get(data).setState(1);
-            }
-            else if (currentDataState.get(data).getState() == 1) {
+            } else if (currentDataState.get(data).getState() == 1) {
                 transactionExecutedList.remove(data);
                 if (transactionExecutedList.isEmpty()) {
                     currentDataState.get(data).setState(0);
                     wakeRow(data);
+                    deadlockControl.remove(transaction);
                 }
             }
         }
@@ -153,8 +153,7 @@ public class Escalonador extends Thread{
                     lockRequest(statusExclusiveLocked, j.getTransaction(), j.getData());
                 }
             }
-        }
-        else {
+        } else {
             for (ItemDado i : transactionWaitRow) {
                 if (i.getData().equals(data)) {
                     System.out.println("Tirando da fila de espera " + data);
@@ -172,8 +171,8 @@ public class Escalonador extends Thread{
     }
 
     @Override
-    public void run(){
-        List<infos> informacao = null;
+    public void run() {
+        List<Infos> informacao = null;
         try {
             informacao = infoDB.batchConsumption();
         } catch (SQLException ex) {
@@ -186,7 +185,7 @@ public class Escalonador extends Thread{
             Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-        for(int i=0; i < itemDado.size(); i++){
+        for (int i = 0; i < itemDado.size(); i++) {
             data.add(itemDado.get(i));
         }
 
@@ -195,8 +194,8 @@ public class Escalonador extends Thread{
             currentDataState.put(dado, item);
         }
 
-        for (int j=0; j < informacao.size(); j++) {
-            if ("R".equals(String.valueOf(informacao.get(j).getOperaction()))){
+        for (int j = 0; j < informacao.size(); j++) {
+            if ("R".equals(String.valueOf(informacao.get(j).getOperaction()))) {
                 try {
                     lockRequest(statusSharedLocked, String.valueOf(informacao.get(j).getTransactionIndex()), informacao.get(j).getDataItem());
                 } catch (SQLException ex) {
@@ -204,7 +203,7 @@ public class Escalonador extends Thread{
                 }
             }
 
-            if ("W".equals(String.valueOf(informacao.get(j).getOperaction()))){
+            if ("W".equals(String.valueOf(informacao.get(j).getOperaction()))) {
                 try {
                     lockRequest(statusExclusiveLocked, String.valueOf(informacao.get(j).getTransactionIndex()), informacao.get(j).getDataItem());
                 } catch (SQLException ex) {
@@ -212,10 +211,22 @@ public class Escalonador extends Thread{
                 }
             }
 
-            if ("E".equals(String.valueOf(informacao.get(j).getOperaction()))){
+            if ("E".equals(String.valueOf(informacao.get(j).getOperaction()))) {
                 try {
                     unlockRequest(String.valueOf(informacao.get(j).getTransactionIndex()), "test");
                     verifyRow();
+                } catch (SQLException ex) {
+                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+                }
+            }
+        }
+        if (!deadlockControl.isEmpty()) {
+            for (int i = deadlockControl.size() - 1; i >= 0; i--) {
+                Conflito c = deadlockControl.remove(i);
+                try {
+                    if (!"".equals(c.dependentTransaction)) {
+                        infoDB.deleteTransactionOperation(Integer.parseInt(c.dependentTransaction));
+                    }
                 } catch (SQLException ex) {
                     Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
                 }
@@ -244,9 +255,9 @@ public class Escalonador extends Thread{
 
     @Override
     public void start() {
-	if (th == null) {
-            th = new Thread (this);
-            th.start ();
+        if (th == null) {
+            th = new Thread(this);
+            th.start();
         }
     }
 }
