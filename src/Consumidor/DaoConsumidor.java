@@ -25,7 +25,7 @@ public class DaoConsumidor {
     
     //metodo para selecionar inforamcoes das operacoes do banco de dados
     public List<Infos> batchConsumption() throws SQLException{
-        List<Infos> informacao = new ArrayList();
+        List<Infos> information = new ArrayList();
 
         myConnection = new MinhaConexao();
         myConnection.getConnection();
@@ -46,7 +46,7 @@ public class DaoConsumidor {
                                                                  rs.getInt("flag"));
                 //alteraFlag(info.getIdOperaction());
 
-                informacao.add(info);
+                information.add(info);
             }
         }catch(Exception e){
             e.printStackTrace();
@@ -54,12 +54,12 @@ public class DaoConsumidor {
             myConnection.release(conn);
         }
 
-        return informacao;
+        return information;
     }
     
     //metodo para selecionar os itens de dados usados nas operacoes
     public List<String> ItemDado() throws SQLException{
-        List<String> informacao = new ArrayList();
+        List<String> information = new ArrayList();
 
         myConnection = new MinhaConexao();
         myConnection.getConnection();
@@ -73,7 +73,7 @@ public class DaoConsumidor {
             ResultSet rs = stm.executeQuery();
 
             while (rs.next()) {
-                informacao.add(rs.getString("itemdado"));
+                information.add(rs.getString("itemdado"));
             }
         }catch(Exception e){
             e.printStackTrace();
@@ -81,7 +81,7 @@ public class DaoConsumidor {
             myConnection.release(conn);
         }
 
-        return informacao;
+        return information;
     }
 
     //metodo para inserir elementos na tabela de saida
@@ -114,7 +114,7 @@ public class DaoConsumidor {
     }
     
     //metodo para alterar a flag de verificaco se a operacao ja foi escalonada
-    public void changeFlag(int idOperacao,int i) throws SQLException{
+    public void changeFlag(int operationId,int i) throws SQLException{
         myConnection = new MinhaConexao();
         Connection conn = myConnection.getConnection();
         
@@ -123,7 +123,7 @@ public class DaoConsumidor {
             PreparedStatement stm = conn.prepareStatement(sql);
 
             stm.setInt(1, i);
-            stm.setInt(2, idOperacao);
+            stm.setInt(2, operationId);
             stm.executeUpdate();
         } catch (Exception e) {
             e.printStackTrace();
@@ -157,7 +157,7 @@ public class DaoConsumidor {
     }
     
     //metodo para verificar quantos itens de dado uma transacao acessa
-    public int transactionItensQuantity(int transacao){
+    public int transactionItensQuantity(int transactionIndex){
         myConnection = new MinhaConexao();
         
         Connection conn = myConnection.getConnection();
@@ -166,7 +166,7 @@ public class DaoConsumidor {
             String sql = "SELECT distinct itemdado FROM schedule WHERE indicetransacao = ?";
             PreparedStatement stm = conn.prepareStatement(sql);
             
-            stm.setInt(1, transacao);
+            stm.setInt(1, transactionIndex);
             ResultSet rs = stm.executeQuery();
 
             while (rs.next()) {
@@ -202,5 +202,39 @@ public class DaoConsumidor {
         }
 
         return deleted;
+    }
+    
+    public List<Infos> selectTransactionOperations(int transactionIndex) throws SQLException{
+        List<Infos> information = new ArrayList();
+
+        myConnection = new MinhaConexao();
+        myConnection.getConnection();
+
+        Connection conn = myConnection.getConnection();
+        try {
+            String sql = "SELECT * FROM schedule WHERE indicetransacao = ?";
+            PreparedStatement stm = conn.prepareStatement(sql);
+            
+            stm.setInt(1, transactionIndex);
+            ResultSet rs = stm.executeQuery();
+
+            while (rs.next()) {
+                Infos info = new Infos(rs.getInt("idoperacao"),
+                                                                 rs.getInt("indicetransacao"),
+                                                                 rs.getString("operacao").charAt(0),
+                                                                 rs.getString("itemdado"),
+                                                                 rs.getString("timestampj"),
+                                                                 rs.getInt("flag"));
+                //alteraFlag(info.getIdOperaction());
+
+                information.add(info);
+            }
+        }catch(Exception e){
+            e.printStackTrace();
+        } finally{
+            myConnection.release(conn);
+        }
+
+        return information;
     }
 }

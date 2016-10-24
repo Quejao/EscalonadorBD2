@@ -46,6 +46,7 @@ public class Escalonador extends Thread {
         data = new ArrayList<>();
         currentDataState = new HashMap<>();
         deadlockControl = new ArrayList<>();
+        info = null;
     }
 
     //metodo para verificacao de bloqueio requisitados
@@ -170,11 +171,23 @@ public class Escalonador extends Thread {
         }
     }
 
+    //verifica se existe deadlock e retorna a transacao mais antiga q esta em deadlock
+    public int checkDeadlock() {
+        int deadlock = -1;
+        for (int i = 0; i < deadlockControl.size() - 1; i++) {
+            for (int j = 1; j < deadlockControl.size(); j++) {
+                if (deadlockControl.get(i).getDependentTransaction() == deadlockControl.get(j).getBlockTransaction()) {
+                    deadlock = i;
+                }
+            }
+        }
+        return deadlock;
+    }
+
     @Override
     public void run() {
-        List<Infos> informacao = null;
         try {
-            informacao = infoDB.batchConsumption();
+            info = infoDB.batchConsumption();
         } catch (SQLException ex) {
             Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -193,45 +206,47 @@ public class Escalonador extends Thread {
         for (String dado : data) {
             currentDataState.put(dado, item);
         }
-
-        for (int j = 0; j < informacao.size(); j++) {
-            if ("R".equals(String.valueOf(informacao.get(j).getOperaction()))) {
+        for (int j = 0; j < info.size(); j++) {
+            if (!deadlockControl.isEmpty()) {
+                int aux = checkDeadlock();
+                if (aux > -1) {
+                    try {
+                        infoDB.deleteTransactionOperation(aux);
+                        List<Infos> info2 = infoDB.selectTransactionOperations(aux);
+                        while(!info2.isEmpty()){
+                            info.add(info2.remove(1));
+                        }
+                    } catch (SQLException ex) {
+                        Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
+                    }
+                }
+            }
+            if ("R".equals(String.valueOf(info.get(j).getOperaction()))) {
                 try {
-                    lockRequest(statusSharedLocked, String.valueOf(informacao.get(j).getTransactionIndex()), informacao.get(j).getDataItem());
+                    lockRequest(statusSharedLocked, String.valueOf(info.get(j).getTransactionIndex()), info.get(j).getDataItem());
                 } catch (SQLException ex) {
                     Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 
-            if ("W".equals(String.valueOf(informacao.get(j).getOperaction()))) {
+            if ("W".equals(String.valueOf(info.get(j).getOperaction()))) {
                 try {
-                    lockRequest(statusExclusiveLocked, String.valueOf(informacao.get(j).getTransactionIndex()), informacao.get(j).getDataItem());
+                    lockRequest(statusExclusiveLocked, String.valueOf(info.get(j).getTransactionIndex()), info.get(j).getDataItem());
                 } catch (SQLException ex) {
                     Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
 
-            if ("E".equals(String.valueOf(informacao.get(j).getOperaction()))) {
+            if ("E".equals(String.valueOf(info.get(j).getOperaction()))) {
                 try {
-                    unlockRequest(String.valueOf(informacao.get(j).getTransactionIndex()), "test");
+                    unlockRequest(String.valueOf(info.get(j).getTransactionIndex()), "test");
                     verifyRow();
                 } catch (SQLException ex) {
                     Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
                 }
             }
         }
-        if (!deadlockControl.isEmpty()) {
-            for (int i = deadlockControl.size() - 1; i >= 0; i--) {
-                Conflito c = deadlockControl.remove(i);
-                try {
-                    if (!"".equals(c.dependentTransaction)) {
-                        infoDB.deleteTransactionOperation(Integer.parseInt(c.dependentTransaction));
-                    }
-                } catch (SQLException ex) {
-                    Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
-                }
-            }
-        }
+
     }
 
     private void verifyRow() throws SQLException {
