@@ -1,5 +1,40 @@
-Execução do programa:
+--------------Execução do programa--------------
 1-Execute no pgAdmin a query statemens, presente na pasta raiz do projeto
 2-Execute a classe main do projeto na IDE desejada(foi utilizado NetBeans para produção do projeto, então podem ser necessárias algumas modificações para utilizar em sua IDE)
 3-O programa gera transações indefinidamente, quando desejar pará-lo aperte enter na pagina de execução do mesmo
-4-O programa salva as transações na tabela de saida scheduleout, pra verificar a saida realize o seguinte comando SQL no pgAdmin: select * from scheduleout; 
+4-O programa salva as transações na tabela de saida scheduleout, pra verificar a saida realize o seguinte comando SQL no pgAdmin: select * from scheduleout;
+
+--------------Explicação dos metodos--------------
+DaoConsumidor:
+-batchConsumption() : cria uma conecção com o banco, realiza um  select no banco para receber as informções de cada operação,   salvando em uma List de informações e devolve essa lista
+
+-itemDado() : cria uma conecção com o banco, realiza um select  pra receber os itens de dados distintos que não sejam NULL,   devolvendo em uma List de strings
+
+-insertTable() : recebe um conjunto de informações,indiceTransacao, operacao,  itemDado e  timestamp, cria uma conecção com o banco, realiza um  insert  na tabela de saída com as informações recebidas e retorna true se a inserção foi bem  sucedida e false  se ocorreu algum problema
+
+-changeFlag() : recebe o id da operação e um i, 0 ou 1, cria uma conecção com o banco, realiza um update  no valor da flag da operação com id recebido para o valor recebido em i, para avaliar se a operação ja foi   escalonada ou não
+
+-transactionQuantity() : cria uma conecção com banco, realiza um  select no banco para receber as tranasções distintas do banco e  retorna a quantidade de transações existentes
+
+-transactionItensQuantity() : recebe um indice de transação, cria uma conecção com o banco, realiza um select para receber os itens de dados distintos que a transação com aquele indice acessa e retorna a quantidade de itens acessados
+
+-deleteTransactionOperatio() : recebe um indice de transação, cria conecção com o banco, realiza um delete no banco de todas as operações que tenham aquele indice de transação na tabela de saída
+
+-selectTransactioOperation() : recebe um indice de transação, cria conecção com o banco, realiza um select no banco para receber todas as operações que tenham aquele indice de transação na tabela de entrada
+
+Escalonador:
+-start() : responsável por manter a thread executando
+
+-run() : método principal, recebe uma lista com as informações das operações pelo metodo batchConsumption(), recebe outra lista com os itens de dados existentes recebidos do método itemDado(), cria uma HashMap com mapeando um dado ao estado desse dado, inicializa um loop para execução do escalonamento para todas as operações. Dentro do loop, faz uma verificação se há deadlock, se há, remove todas as operações da transação mais antiga em deadlock, lista essas operações no fim da lista de operações, se não há deadlock, verifica qual operação recebida. Caso seja um read ou um write, chama o método lockRequest(), caso seja um End, chama o método unlockRequest()
+
+-lockRequest() : recebe um  status de bloqueio, uma transação e um item de dado, se o status de bloqueio for compartilhado, chama o método sharedLock(), senão, chama o método exclusiveLock()
+
+-sharedLock() : recebe um item de dado e uma transação, verifica o status de bloqueio do item de dado, se for 0(desbloqueado), insere a operação na tabela de saída do banco e troca o status de bloqueio do item de dado para 1(bloqueio compartilhado); se for 1 apenas insere na tabela de saída; se for 2(bloqueio exclusivo) insere a transação na fila de espera
+
+-exclusiveLock() : recebe um item de dado e uma transação, verifica o status de bloqueio do item de dado, se for 0(desbloqueado), insere a operação na tabela de saída do banco e troca o status de bloqueio do item de dado para 2(bloqueio exclusivo); se for 1 ou 2, verfica se a transção que está bloqueando o item de dado é o mesmo que está querendo acessá-lo, se for, adiciona a operação na tabela de saída, senão, coloca a operação na fila de espera 
+
+-unlockRequest() : recebe uma transação e um item de dado, altera o estado do  item do dado para desbloqueado e acorda a lista de espera
+
+-verifyRow() :  roda um loop vericando se há necessidade de usar um lockRequest em algum dado
+
+-checkDeadlock() : roda em loop verificando se duas transações estão dependentes entre si, retorna true caso isso ocorra e armazena o indice da transação na variável deadlockID

@@ -58,7 +58,7 @@ public class DaoConsumidor {
     }
 
     //Seleciona os itens de dados usados nas operações
-    public List<String> ItemDado() throws SQLException {
+    public List<String> itemDado() throws SQLException {
         List<String> information = new ArrayList();
 
         myConnection = new MinhaConexao();

@@ -44,7 +44,7 @@ public class Escalonador extends Thread {
         info = null;
     }
 
-    //Thread responsável por manter a execução do program
+    //Thread responsável por manter a execução do programa
     public void start() {
         if (th == null) {
             th = new Thread(this);
@@ -61,7 +61,7 @@ public class Escalonador extends Thread {
         }
         List<String> itemDado = null;
         try {
-            itemDado = infoDB.ItemDado();
+            itemDado = infoDB.itemDado();
         } catch (SQLException ex) {
             Logger.getLogger(Escalonador.class.getName()).log(Level.SEVERE, null, ex);
         }
@@ -246,7 +246,7 @@ public class Escalonador extends Thread {
 
         for (int i = 0; i < transactionWaitRow.size(); i++) {
             first = transactionWaitRow.get(i);
-
+  
             if (currentDataState.get(first.getData()).getState() == 0) {
                 switch (first.getState()) {
                     case 1:
